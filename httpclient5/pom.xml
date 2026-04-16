@@ -19,6 +19,19 @@
             <artifactId>httpcore5</artifactId>
             <version>5.2.3</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.36</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.brotli</groupId>
+            <artifactId>dec</artifactId>
+            <version>0.1.2</version>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
     <properties>
