@@ -1,0 +1,207 @@
+package com.github.liyibo1110.hc.client5.http.entity.mime;
+
+import com.github.liyibo1110.hc.core5.http.ContentType;
+import com.github.liyibo1110.hc.core5.http.HttpEntity;
+import com.github.liyibo1110.hc.core5.http.NameValuePair;
+import com.github.liyibo1110.hc.core5.http.message.BasicNameValuePair;
+import com.github.liyibo1110.hc.core5.util.Args;
+
+import java.io.File;
+import java.io.InputStream;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * 生成MultipartFormEntity对象的工厂。
+ * @author liyibo
+ * @date 2026-04-16 10:50
+ */
+public class MultipartEntityBuilder {
+
+    /** 用于生成multipart boundary的ASCII字符集 */
+    private final static char[] MULTIPART_CHARS = "-_1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
+
+    private ContentType contentType;
+    private HttpMultipartMode mode = HttpMultipartMode.STRICT;
+    private String boundary;
+    private Charset charset;
+    private List<MultipartPart> multipartParts;
+
+    private static final NameValuePair[] EMPTY_NAME_VALUE_ARRAY = {};
+
+    MultipartEntityBuilder() {}
+
+    public static MultipartEntityBuilder create() {
+        return new MultipartEntityBuilder();
+    }
+
+    public MultipartEntityBuilder setMode(final HttpMultipartMode mode) {
+        this.mode = mode;
+        return this;
+    }
+
+    public MultipartEntityBuilder setLaxMode() {
+        this.mode = HttpMultipartMode.LEGACY;
+        return this;
+    }
+
+    public MultipartEntityBuilder setStrictMode() {
+        this.mode = HttpMultipartMode.STRICT;
+        return this;
+    }
+
+    public MultipartEntityBuilder setBoundary(final String boundary) {
+        this.boundary = boundary;
+        return this;
+    }
+
+    public MultipartEntityBuilder setMimeSubtype(final String subType) {
+        Args.notBlank(subType, "MIME subtype");
+        this.contentType = ContentType.create("multipart/" + subType);
+        return this;
+    }
+
+    public MultipartEntityBuilder setContentType(final ContentType contentType) {
+        Args.notNull(contentType, "Content type");
+        this.contentType = contentType;
+        return this;
+    }
+
+    public MultipartEntityBuilder addParameter(final BasicNameValuePair parameter) {
+        this.contentType = contentType.withParameters(parameter);
+        return this;
+    }
+
+    public MultipartEntityBuilder setCharset(final Charset charset) {
+        this.charset = charset;
+        return this;
+    }
+
+    public MultipartEntityBuilder addPart(final MultipartPart multipartPart) {
+        if (multipartPart == null)
+            return this;
+        if (this.multipartParts == null)
+            this.multipartParts = new ArrayList<>();
+        this.multipartParts.add(multipartPart);
+        return this;
+    }
+
+    public MultipartEntityBuilder addPart(final String name, final ContentBody contentBody) {
+        Args.notNull(name, "Name");
+        Args.notNull(contentBody, "Content body");
+        return addPart(FormBodyPartBuilder.create(name, contentBody).build());
+    }
+
+    public MultipartEntityBuilder addTextBody(final String name, final String text, final ContentType contentType) {
+        return addPart(name, new StringBody(text, contentType));
+    }
+
+    public MultipartEntityBuilder addTextBody(final String name, final String text) {
+        return addTextBody(name, text, ContentType.DEFAULT_TEXT);
+    }
+
+    public MultipartEntityBuilder addBinaryBody(final String name, final byte[] b, final ContentType contentType, final String filename) {
+        return addPart(name, new ByteArrayBody(b, contentType, filename));
+    }
+
+    public MultipartEntityBuilder addBinaryBody(final String name, final byte[] b) {
+        return addPart(name, new ByteArrayBody(b, ContentType.DEFAULT_BINARY));
+    }
+
+    public MultipartEntityBuilder addBinaryBody(final String name, final File file, final ContentType contentType, final String filename) {
+        return addPart(name, new FileBody(file, contentType, filename));
+    }
+
+    public MultipartEntityBuilder addBinaryBody(final String name, final File file) {
+        return addBinaryBody(name, file, ContentType.DEFAULT_BINARY, file != null ? file.getName() : null);
+    }
+
+    public MultipartEntityBuilder addBinaryBody(final String name, final InputStream stream, final ContentType contentType, final String filename) {
+        return addPart(name, new InputStreamBody(stream, contentType, filename));
+    }
+
+    public MultipartEntityBuilder addBinaryBody(final String name, final InputStream stream) {
+        return addBinaryBody(name, stream, ContentType.DEFAULT_BINARY, null);
+    }
+
+    private String generateBoundary() {
+        final ThreadLocalRandom rand = ThreadLocalRandom.current();
+        final int count = rand.nextInt(30, 41); // a random size from 30 to 40
+        final CharBuffer buffer = CharBuffer.allocate(count);
+        while (buffer.hasRemaining())
+            buffer.put(MULTIPART_CHARS[rand.nextInt(MULTIPART_CHARS.length)]);
+        buffer.flip();
+        return buffer.toString();
+    }
+
+    MultipartFormEntity buildEntity() {
+        String boundaryCopy = boundary;
+        if (boundaryCopy == null && contentType != null)
+            boundaryCopy = contentType.getParameter("boundary");
+
+        if (boundaryCopy == null)
+            boundaryCopy = generateBoundary();
+
+        Charset charsetCopy = charset;
+        if (charsetCopy == null && contentType != null)
+            charsetCopy = contentType.getCharset();
+
+        final List<NameValuePair> paramsList = new ArrayList<>(2);
+        paramsList.add(new BasicNameValuePair("boundary", boundaryCopy));
+        if (charsetCopy != null)
+            paramsList.add(new BasicNameValuePair("charset", charsetCopy.name()));
+
+        final NameValuePair[] params = paramsList.toArray(EMPTY_NAME_VALUE_ARRAY);
+
+        final ContentType contentTypeCopy;
+        if (contentType != null) {
+            contentTypeCopy = contentType.withParameters(params);
+        } else {
+            boolean formData = false;
+            if (multipartParts != null) {
+                for (final MultipartPart multipartPart : multipartParts) {
+                    if (multipartPart instanceof FormBodyPart) {
+                        formData = true;
+                        break;
+                    }
+                }
+            }
+
+            if (formData)
+                contentTypeCopy = ContentType.MULTIPART_FORM_DATA.withParameters(params);
+            else
+                contentTypeCopy = ContentType.create("multipart/mixed", params);
+        }
+        final List<MultipartPart> multipartPartsCopy = multipartParts != null
+                ? new ArrayList<>(multipartParts)
+                : Collections.emptyList();
+        final HttpMultipartMode modeCopy = mode != null ? mode : HttpMultipartMode.STRICT;
+        final AbstractMultipartFormat form;
+        switch (modeCopy) {
+            case LEGACY:
+                form = new LegacyMultipart(charsetCopy, boundaryCopy, multipartPartsCopy);
+                break;
+            case EXTENDED:
+                if (contentTypeCopy.isSameMimeType(ContentType.MULTIPART_FORM_DATA)) {
+                    if (charsetCopy == null)
+                        charsetCopy = StandardCharsets.UTF_8;
+                    form = new HttpRFC7578Multipart(charsetCopy, boundaryCopy, multipartPartsCopy);
+                } else {
+                    form = new HttpRFC6532Multipart(charsetCopy, boundaryCopy, multipartPartsCopy);
+                }
+                break;
+            default:
+                form = new HttpStrictMultipart(StandardCharsets.US_ASCII, boundaryCopy, multipartPartsCopy);
+        }
+        return new MultipartFormEntity(form, contentTypeCopy, form.getTotalLength());
+    }
+
+    public HttpEntity build() {
+        return buildEntity();
+    }
+}
