@@ -1,6 +1,6 @@
 package com.github.liyibo1110.hc.client5.http.classic;
 
-import java.net.http.HttpResponse;
+import com.github.liyibo1110.hc.core5.http.HttpResponse;
 
 /**
  * 在管理特定路由的动态连接数时，该策略会根据生成的Throwable异常或响应结果（例如其状态码）来判断，某个请求的执行结果是否应触发退避信号。
