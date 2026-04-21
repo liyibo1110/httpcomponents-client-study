@@ -22,7 +22,7 @@ import java.util.Locale;
  * @date 2026-04-19 11:22
  */
 @Contract(threading = ThreadingBehavior.SAFE)
-public class CookieSpecBase extends AbstractCookieSpec {
+public abstract class CookieSpecBase extends AbstractCookieSpec {
 
     public CookieSpecBase() {
         super();
