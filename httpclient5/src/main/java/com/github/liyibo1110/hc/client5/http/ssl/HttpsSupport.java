@@ -1,7 +1,9 @@
 package com.github.liyibo1110.hc.client5.http.ssl;
 
+import com.github.liyibo1110.hc.client5.http.psl.PublicSuffixMatcherLoader;
 import com.github.liyibo1110.hc.core5.util.TextUtils;
 
+import javax.net.ssl.HostnameVerifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
@@ -30,5 +32,9 @@ public final class HttpsSupport {
 
     public static String[] getSystemCipherSuits() {
         return split(getProperty("https.cipherSuites"));
+    }
+
+    public static HostnameVerifier getDefaultHostnameVerifier() {
+        return new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
     }
 }
